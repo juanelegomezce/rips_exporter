@@ -1,3 +1,5 @@
+# coding=utf-8
+
 import pandas as pd
 from dateutil.relativedelta import relativedelta
 from datetime import time, datetime
@@ -9,9 +11,12 @@ import zipfile
 class RIPS:
 
     dfConsultorio = None
+    dfCiudades = None
     dfAC = None
     dfUS = None
     dfAF = None
+
+    columns = ["fecha_atencion", "fecha_nacimiento", "nombre", "sexo", "tipo_documento", "identificacion", "diagnostico", "municipio", "edad"]
 
     _CODIGO_PRESTADOR = "050010185901"
     _NUMERO_DE_LA_FACTURA = "1"
@@ -73,12 +78,15 @@ class RIPS:
 
     def get_document_type(self, row):
         if row.identificacion != "":
-            if row.edad<7: 
-                return "RC"
-            elif row.edad>=18:
-                return "CC"
+            if row.tipo_documento != "":
+                return row.tipo_documento
             else:
-                return "TI"
+                if row.edad<7: 
+                    return "RC"
+                elif row.edad>=18:
+                    return "CC"
+                else:
+                    return "TI"
         else:
             if row.edad<18:
                 return "MS"
@@ -137,6 +145,7 @@ class RIPS:
     def generate_RIPS(self):
         self.generate_exports_folder()
         self.load_report()
+        self.load_ciudades()
         self.generate_AC()
         self.generate_US()
         self.generate_AF()
@@ -148,9 +157,16 @@ class RIPS:
         self.zip_reports()
 
     def load_report(self):
-        self.dfConsultorio = pd.read_excel("RIPS/{}.xlsx".format(self.codigo), names=["fecha_atencion", "fecha_nacimiento", "nombre", "sexo", "historia", "identificacion", "diagnostico", "numero_factura", "valor"], dtype={"Identificacion": str, "valor": int}, na_values={"nan": ''}, keep_default_na=False)
+        self.dfConsultorio = pd.read_excel("RIPS/{}.xlsx".format(self.codigo), names=self.columns, dtype={"Identificacion": str}, na_values={"nan": ''}, keep_default_na=False)
         self.dfConsultorio["edad"] = self.dfConsultorio.fecha_nacimiento.apply(lambda x: relativedelta(self.now, x).years)
+        self.dfConsultorio["municipio"] = self.dfConsultorio["municipio"].apply(lambda x: x.encode('utf-8').upper().replace("á", "A").replace("é", "E").replace("í", "I").replace("ó", "O").replace("ú", "U").replace("ñ", "Ñ"))
         self.dfConsultorio.nombre = self.dfConsultorio.nombre.apply(lambda x: x.upper())
+
+    def load_ciudades(self):
+        self.dfCiudades = pd.read_csv("RIPS/ciudades.csv", names=["codigo_departamento", "departamento", "codigo_municipio", "municipio"], dtype={"codigo_departamento": str, "codigo_municipio": str})
+        self.dfConsultorio = pd.merge(self.dfConsultorio, self.dfCiudades, how="left", on="municipio", validate="many_to_one", indicator=True)
+        self.dfConsultorio.loc[self.dfConsultorio["_merge"]=="left_only", "codigo_departamento"] = self._CODIGO_DEPARTAMENTO
+        self.dfConsultorio.loc[self.dfConsultorio["_merge"]=="left_only", "codigo_municipio"] = self._CODIGO_MUNICIPIO
     
     def generate_AC(self):
         self.dfAC = pd.DataFrame(columns=["numero_de_la_factura",	"codigo_del_prestador",	"tipo_de_identificacion",	"numero_de_identificacion",	"fecha_de_consulta",	"nro_de_autorizacion",	"codigo_de_la_consulta",	"finalidad_de_la_consulta",	"causa_externa",	"cod_dx_principal",	"cod_dx_rel_1",	"cod_dx_rel_2",	"cod_dx_rel_3",	"tipo_de_diagnostico",	"valor_de_la_consulta",	"valor_cuota_moderadora",	"valor_neto_a_pagar"])
@@ -159,7 +175,7 @@ class RIPS:
         self.dfAC.numero_de_la_factura = self._NUMERO_DE_LA_FACTURA
         self.dfAC.codigo_del_prestador = self._CODIGO_PRESTADOR
         self.dfAC.fecha_de_consulta = self.dfConsultorio.fecha_atencion.apply(lambda x: x.strftime("%d/%m/%Y") )
-        self.dfAC.nro_de_autorizacion = self.dfConsultorio.numero_factura
+        self.dfAC.nro_de_autorizacion = ""
         self.dfAC.codigo_de_la_consulta = self._CONSULTA_PRIMERA_VEZ #Este lo voy a dejar asi por el momento, la idea es que dependiendo del tipo de consulta (primera 890283 o segunda 890383 vez uso codigos distintos)
         self.dfAC.finalidad_de_la_consulta = self._FINALIDAD_CONSULTA
         self.dfAC.causa_externa = self._CAUSA_EXTERNA
@@ -173,7 +189,7 @@ class RIPS:
         self.dfAC.valor_neto_a_pagar = self._VALOR_CONSULTA
     
     def generate_US(self):
-        self.dfUS = pd.DataFrame(columns=["tipo_de_identificacion",	"numero_de_identificacion",	"codigo_entidad_administradora",	"tipo_de_usuario",	"primer_apellido_del_usuario",	"segundo_apellido_del_usuario",	"primer_nombre_del_usuario",	"segundo_nombre_del_usuario",	"edad",	"unidad_de_medida_de_edad",	"sexo",	"cod_depto",	"cod_mun",	"zona_de_residencia"])
+        self.dfUS = pd.DataFrame(columns=["tipo_de_identificacion",	"numero_de_identificacion",	"codigo_entidad_administradora", "tipo_de_usuario",	"primer_apellido_del_usuario",	"segundo_apellido_del_usuario",	"primer_nombre_del_usuario",	"segundo_nombre_del_usuario",	"edad",	"unidad_de_medida_de_edad",	"sexo",	"cod_depto",	"cod_mun",	"zona_de_residencia"])
         self.dfUS.tipo_de_identificacion = self.dfAC.tipo_de_identificacion
         self.dfUS.numero_de_identificacion = self.dfAC.numero_de_identificacion
         self.dfUS.codigo_entidad_administradora = self._CODIGO_ENTIDAD_ADMINISTRADORA
@@ -185,10 +201,10 @@ class RIPS:
         self.dfUS.edad = self.dfConsultorio.fecha_nacimiento.apply(self.get_age)
         self.dfUS.unidad_de_medida_de_edad = self.dfConsultorio.fecha_nacimiento.apply(self.get_age_unit)
         self.dfUS.sexo = self.dfConsultorio.sexo
-        self.dfUS.cod_depto = self._CODIGO_DEPARTAMENTO
-        self.dfUS.cod_mun = self._CODIGO_MUNICIPIO
+        self.dfUS.cod_depto = self.dfConsultorio.codigo_departamento
+        self.dfUS.cod_mun = self.dfConsultorio.codigo_municipio
         self.dfUS.zona_de_residencia = self._ZONA_RESIDENCIA_URBANA
-        self.dfUS.drop_duplicates()
+        self.dfUS = self.dfUS.drop_duplicates(["tipo_de_identificacion", "numero_de_identificacion"])
     
     def generate_AF(self):
         self.dfAF = pd.DataFrame(columns=["codigo_del_prestador",	"razon_social",	"tipo_de_identificacion",	"numero_de_identificacion",	"numero_de_la_factura",	"fecha_expedicion_de_la_factura",	"fecha_inicial",	"fecha_final",	"codigo_entidad_administradora",	"nombre_entidad_administradora_o_quien_paga_la_factura",	"numero_del_contrato",	"plan_de_beneficios",	"numero_de_la_poliza",	"valor_total_del_copago_y/o_pago_compartido",	"valor_de_la_comision",	"valor_total_de_descuentos",	"valor_neto_a_pagar_por_la_entidad_contratante"])
