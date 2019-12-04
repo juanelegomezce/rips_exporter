@@ -163,7 +163,7 @@ class RIPS:
         self.dfConsultorio.nombre = self.dfConsultorio.nombre.apply(lambda x: x.upper())
 
     def load_ciudades(self):
-        self.dfCiudades = pd.read_csv("RIPS/ciudades.csv", names=["codigo_departamento", "departamento", "codigo_municipio", "municipio"], dtype={"codigo_departamento": str, "codigo_municipio": str})
+        self.dfCiudades = pd.read_excel("RIPS/ciudades.xlsx", names=["codigo_departamento", "departamento", "codigo_municipio", "municipio"], dtype={"codigo_departamento": str, "codigo_municipio": str})
         self.dfConsultorio = pd.merge(self.dfConsultorio, self.dfCiudades, how="left", on="municipio", validate="many_to_one", indicator=True)
         self.dfConsultorio.loc[self.dfConsultorio["_merge"]=="left_only", "codigo_departamento"] = self._CODIGO_DEPARTAMENTO
         self.dfConsultorio.loc[self.dfConsultorio["_merge"]=="left_only", "codigo_municipio"] = self._CODIGO_MUNICIPIO
