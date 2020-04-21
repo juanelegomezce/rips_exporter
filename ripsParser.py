@@ -79,6 +79,8 @@ class RIPS:
     def get_document_type(self, row):
         if row.identificacion != "":
             if row.tipo_documento != "":
+                if row.tipo_documento == "pasaporte":
+                    return "PA"
                 return row.tipo_documento
             else:
                 if row.edad<7: 
