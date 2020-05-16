@@ -67,14 +67,20 @@ class RIPS:
         if age.years>0:
             return age.years
         else:
-            return age.months
+            if age.months>0:
+                return age.months
+            else:
+                return age.days
 
     def get_age_unit(self, fecha):
         age = relativedelta(datetime.today(), fecha)
         if age.years>0:
             return "1"
         else:
-            return "2"
+            if age.months>0:
+                return "2"
+            else:
+                return "3"
 
     def get_document_type(self, row):
         if row.identificacion != "":
@@ -172,41 +178,43 @@ class RIPS:
     
     def generate_AC(self):
         self.dfAC = pd.DataFrame(columns=["numero_de_la_factura",	"codigo_del_prestador",	"tipo_de_identificacion",	"numero_de_identificacion",	"fecha_de_consulta",	"nro_de_autorizacion",	"codigo_de_la_consulta",	"finalidad_de_la_consulta",	"causa_externa",	"cod_dx_principal",	"cod_dx_rel_1",	"cod_dx_rel_2",	"cod_dx_rel_3",	"tipo_de_diagnostico",	"valor_de_la_consulta",	"valor_cuota_moderadora",	"valor_neto_a_pagar"])
-        self.dfAC.tipo_de_identificacion = self.dfConsultorio.apply(self.get_document_type, axis=1)
-        self.dfAC.numero_de_identificacion = self.dfConsultorio.apply(self.get_document, axis=1)
-        self.dfAC.numero_de_la_factura = self._NUMERO_DE_LA_FACTURA
-        self.dfAC.codigo_del_prestador = self._CODIGO_PRESTADOR
-        self.dfAC.fecha_de_consulta = self.dfConsultorio.fecha_atencion.apply(lambda x: x.strftime("%d/%m/%Y") )
-        self.dfAC.nro_de_autorizacion = ""
-        self.dfAC.codigo_de_la_consulta = self._CONSULTA_PRIMERA_VEZ #Este lo voy a dejar asi por el momento, la idea es que dependiendo del tipo de consulta (primera 890283 o segunda 890383 vez uso codigos distintos)
-        self.dfAC.finalidad_de_la_consulta = self._FINALIDAD_CONSULTA
-        self.dfAC.causa_externa = self._CAUSA_EXTERNA
-        self.dfAC.cod_dx_principal = self.dfConsultorio.diagnostico
-        self.dfAC.cod_dx_rel_1 = ""
-        self.dfAC.cod_dx_rel_2 = ""
-        self.dfAC.cod_dx_rel_3 = ""
-        self.dfAC.tipo_de_diagnostico = self._TIPO_DIAGNOSTICO
-        self.dfAC.valor_de_la_consulta = self._VALOR_CONSULTA
-        self.dfAC.valor_cuota_moderadora = self._VALOR_CUOTA_MODERADORA
-        self.dfAC.valor_neto_a_pagar = self._VALOR_CONSULTA
+        if self.dfConsultorio.shape[0]>0:
+            self.dfAC.tipo_de_identificacion = self.dfConsultorio.apply(self.get_document_type, axis=1)
+            self.dfAC.numero_de_identificacion = self.dfConsultorio.apply(self.get_document, axis=1)
+            self.dfAC.numero_de_la_factura = self._NUMERO_DE_LA_FACTURA
+            self.dfAC.codigo_del_prestador = self._CODIGO_PRESTADOR
+            self.dfAC.fecha_de_consulta = self.dfConsultorio.fecha_atencion.apply(lambda x: x.strftime("%d/%m/%Y") )
+            self.dfAC.nro_de_autorizacion = ""
+            self.dfAC.codigo_de_la_consulta = self._CONSULTA_PRIMERA_VEZ #Este lo voy a dejar asi por el momento, la idea es que dependiendo del tipo de consulta (primera 890283 o segunda 890383 vez uso codigos distintos)
+            self.dfAC.finalidad_de_la_consulta = self._FINALIDAD_CONSULTA
+            self.dfAC.causa_externa = self._CAUSA_EXTERNA
+            self.dfAC.cod_dx_principal = self.dfConsultorio.diagnostico
+            self.dfAC.cod_dx_rel_1 = ""
+            self.dfAC.cod_dx_rel_2 = ""
+            self.dfAC.cod_dx_rel_3 = ""
+            self.dfAC.tipo_de_diagnostico = self._TIPO_DIAGNOSTICO
+            self.dfAC.valor_de_la_consulta = self._VALOR_CONSULTA
+            self.dfAC.valor_cuota_moderadora = self._VALOR_CUOTA_MODERADORA
+            self.dfAC.valor_neto_a_pagar = self._VALOR_CONSULTA
     
     def generate_US(self):
         self.dfUS = pd.DataFrame(columns=["tipo_de_identificacion",	"numero_de_identificacion",	"codigo_entidad_administradora", "tipo_de_usuario",	"primer_apellido_del_usuario",	"segundo_apellido_del_usuario",	"primer_nombre_del_usuario",	"segundo_nombre_del_usuario",	"edad",	"unidad_de_medida_de_edad",	"sexo",	"cod_depto",	"cod_mun",	"zona_de_residencia"])
-        self.dfUS.tipo_de_identificacion = self.dfAC.tipo_de_identificacion
-        self.dfUS.numero_de_identificacion = self.dfAC.numero_de_identificacion
-        self.dfUS.codigo_entidad_administradora = self._CODIGO_ENTIDAD_ADMINISTRADORA
-        self.dfUS.tipo_de_usuario = self._TIPO_USUARIO
-        self.dfUS.primer_apellido_del_usuario = self.dfConsultorio.nombre.apply(self.get_first_lastname)
-        self.dfUS.segundo_apellido_del_usuario = self.dfConsultorio.nombre.apply(self.get_second_lastname)
-        self.dfUS.primer_nombre_del_usuario = self.dfConsultorio.nombre.apply(self.get_first_firstname)
-        self.dfUS.segundo_nombre_del_usuario = self.dfConsultorio.nombre.apply(self.get_second_firstname)
-        self.dfUS.edad = self.dfConsultorio.fecha_nacimiento.apply(self.get_age)
-        self.dfUS.unidad_de_medida_de_edad = self.dfConsultorio.fecha_nacimiento.apply(self.get_age_unit)
-        self.dfUS.sexo = self.dfConsultorio.sexo
-        self.dfUS.cod_depto = self.dfConsultorio.codigo_departamento
-        self.dfUS.cod_mun = self.dfConsultorio.codigo_municipio
-        self.dfUS.zona_de_residencia = self._ZONA_RESIDENCIA_URBANA
-        self.dfUS = self.dfUS.drop_duplicates(["tipo_de_identificacion", "numero_de_identificacion"])
+        if self.dfConsultorio.shape[0]>0:
+            self.dfUS.tipo_de_identificacion = self.dfAC.tipo_de_identificacion
+            self.dfUS.numero_de_identificacion = self.dfAC.numero_de_identificacion
+            self.dfUS.codigo_entidad_administradora = self._CODIGO_ENTIDAD_ADMINISTRADORA
+            self.dfUS.tipo_de_usuario = self._TIPO_USUARIO
+            self.dfUS.primer_apellido_del_usuario = self.dfConsultorio.nombre.apply(self.get_first_lastname)
+            self.dfUS.segundo_apellido_del_usuario = self.dfConsultorio.nombre.apply(self.get_second_lastname)
+            self.dfUS.primer_nombre_del_usuario = self.dfConsultorio.nombre.apply(self.get_first_firstname)
+            self.dfUS.segundo_nombre_del_usuario = self.dfConsultorio.nombre.apply(self.get_second_firstname)
+            self.dfUS.edad = self.dfConsultorio.fecha_nacimiento.apply(self.get_age)
+            self.dfUS.unidad_de_medida_de_edad = self.dfConsultorio.fecha_nacimiento.apply(self.get_age_unit)
+            self.dfUS.sexo = self.dfConsultorio.sexo
+            self.dfUS.cod_depto = self.dfConsultorio.codigo_departamento
+            self.dfUS.cod_mun = self.dfConsultorio.codigo_municipio
+            self.dfUS.zona_de_residencia = self._ZONA_RESIDENCIA_URBANA
+            self.dfUS = self.dfUS.drop_duplicates(["tipo_de_identificacion", "numero_de_identificacion"])
     
     def generate_AF(self):
         self.dfAF = pd.DataFrame(columns=["codigo_del_prestador",	"razon_social",	"tipo_de_identificacion",	"numero_de_identificacion",	"numero_de_la_factura",	"fecha_expedicion_de_la_factura",	"fecha_inicial",	"fecha_final",	"codigo_entidad_administradora",	"nombre_entidad_administradora_o_quien_paga_la_factura",	"numero_del_contrato",	"plan_de_beneficios",	"numero_de_la_poliza",	"valor_total_del_copago_y/o_pago_compartido",	"valor_de_la_comision",	"valor_total_de_descuentos",	"valor_neto_a_pagar_por_la_entidad_contratante"])
